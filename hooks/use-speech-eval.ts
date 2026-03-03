@@ -55,7 +55,7 @@ export function useSpeechEval() {
   const ensureEngine = useCallback((): Promise<void> => {
     if (initPromiseRef.current) return initPromiseRef.current;
 
-    const promise = new Promise<void>((resolve, reject) => {
+    const mainPromise = new Promise<void>((resolve, reject) => {
       const Engine = typeof window !== "undefined" ? window.EngineEvaluat : null;
       if (!Engine) {
         reject(new Error("EngineEvaluat not loaded. Ensure engine.js is loaded."));
@@ -90,9 +90,12 @@ export function useSpeechEval() {
           setLoading(false);
           setRecordingStatus("idle");
         },
-        micAllowCallback: () => {},
+        micAllowCallback: () => {
+          setIsReady(true);
+          resolve();
+        },
         micForbidCallback: () => {
-          console.warn("[speech-eval] microphone forbidden");
+          reject(new Error("麦克风权限被拒绝，请允许后重试"));
         },
         JSSDKNotSupport: () => {
           reject(new Error("Browser does not support speech evaluation"));
@@ -103,8 +106,20 @@ export function useSpeechEval() {
       });
 
       engineRef.current = instance;
-    }).catch((err) => {
+    });
+
+    const timeoutPromise = new Promise<void>((_, reject) => {
+      const timeoutId = setTimeout(() => {
+        initPromiseRef.current = null;
+        engineRef.current = null;
+        reject(new Error("SDK 初始化超时，请重试"));
+      }, 10000);
+      mainPromise.finally(() => clearTimeout(timeoutId));
+    });
+
+    const promise = Promise.race([mainPromise, timeoutPromise]).catch((err) => {
       initPromiseRef.current = null;
+      engineRef.current = null;
       throw err;
     });
 

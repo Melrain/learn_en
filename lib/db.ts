@@ -1,4 +1,8 @@
 import mongoose from "mongoose";
+// 确保在 connectDB 使用前注册所有模型，避免 populate 时 MissingSchemaError
+import "@/models/Question";
+import "@/models/QuestionSet";
+import "@/models/PracticeRecord";
 
 const MONGODB_URI = process.env.MONGODB_URI!;
 

@@ -7,6 +7,7 @@ const QuestionSchema = new mongoose.Schema(
     coreType: { type: String },
     difficulty: { type: Number, default: 1 },
     sortOrder: { type: Number, default: 0 },
+    source: { type: String, enum: ["manual", "ai"], default: "manual" },
   },
   { timestamps: true },
 );

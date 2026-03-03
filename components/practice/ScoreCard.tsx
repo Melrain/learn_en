@@ -37,7 +37,7 @@ export function ScoreCard({ result }: ScoreCardProps) {
   return (
     <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
       <div className="mb-4 flex items-baseline gap-2">
-        <span className="text-3xl font-bold">{overall ?? "—"}</span>
+        <span className="text-2xl font-bold sm:text-3xl">{overall ?? "—"}</span>
         <span className="text-muted-foreground">/ 100</span>
         {rank && (
           <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-sm">

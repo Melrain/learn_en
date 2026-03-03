@@ -29,7 +29,7 @@ export function RecordButton({
         size="lg"
         onClick={onStop}
         disabled={disabled}
-        className="gap-2"
+        className="w-full gap-2 sm:w-auto"
       >
         <Square className="size-4 fill-current" />
         停止录音
@@ -39,7 +39,7 @@ export function RecordButton({
 
   if (isEvaluating) {
     return (
-      <Button variant="outline" size="lg" disabled className="gap-2">
+      <Button variant="outline" size="lg" disabled className="w-full gap-2 sm:w-auto">
         <Loader2 className="size-4 animate-spin" />
         评测中...
       </Button>
@@ -52,7 +52,7 @@ export function RecordButton({
       size="lg"
       onClick={onStart}
       disabled={disabled}
-      className="gap-2"
+      className="w-full gap-2 sm:w-auto"
     >
       <Mic className="size-4" />
       开始录音

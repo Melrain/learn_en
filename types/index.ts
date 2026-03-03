@@ -7,6 +7,7 @@ export interface IQuestion {
   coreType?: string;
   difficulty: number;
   sortOrder: number;
+  source?: "manual" | "ai";
   createdAt: Date;
   updatedAt: Date;
 }

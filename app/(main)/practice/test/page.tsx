@@ -2,7 +2,7 @@
 
 import Script from "next/script";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RecordButton } from "@/components/practice/RecordButton";
 import { Volume2, Loader2 } from "lucide-react";
@@ -50,6 +50,24 @@ export default function PracticeTestPage() {
 
   const { recordingStatus, result, loading, setResult } = usePracticeStore();
   const { startEval, stopEval, ensureEngine } = useSpeechEval();
+  const lastSavedResultRef = useRef<unknown>(null);
+  const evalRefTextRef = useRef<string>("");
+
+  useEffect(() => {
+    const data = result as { result?: { overall?: number; rank?: string; details?: { char: string; score: number }[] } } | null;
+    if (!data?.result || data === lastSavedResultRef.current) return;
+    lastSavedResultRef.current = data;
+    fetch("/api/practice-records", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        refText: evalRefTextRef.current,
+        overall: data.result.overall ?? 0,
+        rank: data.result.rank ?? null,
+        details: data.result.details ?? [],
+      }),
+    }).catch((e) => console.error("[practice-test] save record failed:", e));
+  }, [result]);
 
   const handleStartRecord = async () => {
     const text = refText.trim();
@@ -59,6 +77,7 @@ export default function PracticeTestPage() {
     }
     setSdkError(null);
     setResult(null);
+    evalRefTextRef.current = text;
     try {
       await ensureEngine();
       await startEval(text, coreType);
@@ -118,8 +137,8 @@ export default function PracticeTestPage() {
         }}
         onError={() => setSdkError("engine.js 加载失败")}
       />
-      <div className="container mx-auto max-w-2xl space-y-6 py-12">
-        <div className="flex items-center justify-between">
+      <div className="container mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-6 sm:py-12">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">语音评测闭环测试</h1>
           <Button asChild variant="outline" size="sm">
             <Link href="/practice">返回练习</Link>
@@ -143,7 +162,7 @@ export default function PracticeTestPage() {
 
         <div className="space-y-2">
           <label className="text-sm font-medium">评测类型（coreType）</label>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {CORE_OPTIONS.map((opt) => (
               <Button
                 key={opt.value}
@@ -159,7 +178,7 @@ export default function PracticeTestPage() {
 
         <div className="space-y-2">
           <label className="text-sm font-medium">语速（TTS）</label>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {TTS_SPEECH_RATE_OPTIONS.map((opt) => (
               <Button
                 key={opt.value}
@@ -178,7 +197,7 @@ export default function PracticeTestPage() {
           <select
             value={ttsVoice}
             onChange={(e) => setTtsVoice(e.target.value)}
-            className="rounded-md border bg-background px-3 py-2 text-sm"
+            className="w-full max-w-[280px] rounded-md border bg-background px-3 py-2 text-sm"
           >
             {TTS_VOICE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -188,8 +207,8 @@ export default function PracticeTestPage() {
           </select>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg border bg-muted/30 p-6 flex-1">
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+          <div className="w-full rounded-lg border bg-muted/30 p-4 flex-1 sm:p-6">
             <p className="text-lg leading-relaxed">{refText || "（请输入评测文本）"}</p>
           </div>
           <Button

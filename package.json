@@ -10,6 +10,10 @@
   },
   "dependencies": {
     "@alicloud/pop-core": "^1.8.0",
+    "@langchain/core": "^1.1.29",
+    "@langchain/deepseek": "^1.0.15",
+    "@langchain/langgraph": "^1.2.0",
+    "@langchain/openai": "^1.2.11",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.575.0",

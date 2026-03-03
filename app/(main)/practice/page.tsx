@@ -237,7 +237,7 @@ function PracticePageContent() {
       <div className="container mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-6 sm:py-12">
         <h1 className="text-2xl font-bold">口语练习</h1>
         <p className="text-muted-foreground">暂无题目集合，请在管理后台创建。</p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button asChild>
             <Link href="/admin">管理后台</Link>
           </Button>

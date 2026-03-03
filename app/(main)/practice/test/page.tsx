@@ -197,7 +197,7 @@ export default function PracticeTestPage() {
           <select
             value={ttsVoice}
             onChange={(e) => setTtsVoice(e.target.value)}
-            className="w-full max-w-[280px] rounded-md border bg-background px-3 py-2 text-sm"
+            className="w-full max-w-[280px] rounded-md border bg-background px-3 py-2 text-base"
           >
             {TTS_VOICE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>

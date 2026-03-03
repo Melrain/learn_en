@@ -173,7 +173,7 @@ export default function ChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder='输入消息...'
-              className='min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-sm'
+              className='min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-base'
               disabled={loading}
             />
             <Button

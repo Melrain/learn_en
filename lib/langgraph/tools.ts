@@ -184,9 +184,11 @@ export const generateQuestions = tool(
       });
     }
     let setDoc: { _id: Types.ObjectId } | null = null;
-    if (setName && ids.length > 0) {
+    if (ids.length > 0) {
+      const setDisplayName =
+        setName ?? `AI 生成练习题 (${new Date().toLocaleDateString("zh-CN")})`;
       setDoc = await QuestionSet.create({
-        name: setName,
+        name: setDisplayName,
         description: `AI 生成的练习题（${ids.length} 道）`,
         sortOrder: 0,
         questionIds: ids,
@@ -196,7 +198,7 @@ export const generateQuestions = tool(
       {
         created: created.length,
         questions: created,
-        setCreated: !!setName,
+        setCreated: true,
         setId: setDoc ? String(setDoc._id) : undefined,
       },
       null,

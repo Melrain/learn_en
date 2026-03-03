@@ -85,11 +85,28 @@ export async function POST(request: NextRequest) {
               const [mode, data] = chunk;
               if (mode === "messages") {
                 const [msgChunk, _meta] = data as [BaseMessageChunk, Record<string, unknown>];
+
+                // 提取 AI 回复文本
                 const text = extractContentFromChunk(msgChunk);
                 if (text) {
                   sendEvent({ type: "token", content: text });
                 }
+
+                // 检测 ToolMessage：提取 generatedSetId
+                const toolMsg = msgChunk as unknown as {
+                  type?: string;
+                  name?: string;
+                  _getType?: () => string;
+                };
+                const msgType = toolMsg.type ?? toolMsg._getType?.();
+                if (msgType === "tool" && toolMsg.name === "generate_questions") {
+                  const content =
+                    typeof msgChunk.content === "string" ? msgChunk.content : "";
+                  const sid = tryParseGeneratedSetId(content);
+                  if (sid) generatedSetId = sid;
+                }
               } else if (mode === "tools" && typeof data === "object" && data !== null) {
+                console.log("[agent] tools stream data:", JSON.stringify(data).slice(0, 200));
                 const tool = data as { event?: string; name?: string; output?: unknown };
                 if (tool.event === "on_tool_end" && tool.name === "generate_questions") {
                   const sid = tryParseGeneratedSetId(tool.output);

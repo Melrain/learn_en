@@ -19,8 +19,24 @@ export function RecordButton({
   onStop,
   disabled,
 }: RecordButtonProps) {
+  const isWaiting = status === "waitingForSpeech";
   const isRecording = status === "recording";
   const isEvaluating = status === "stopped" && loading;
+
+  if (isWaiting) {
+    return (
+      <Button
+        variant="outline"
+        size="lg"
+        onClick={onStop}
+        disabled={disabled}
+        className="w-full gap-2 sm:w-auto animate-pulse"
+      >
+        <Mic className="size-4 text-orange-500" />
+        请开始说话...
+      </Button>
+    );
+  }
 
   if (isRecording) {
     return (
@@ -32,7 +48,7 @@ export function RecordButton({
         className="w-full gap-2 sm:w-auto"
       >
         <Square className="size-4 fill-current" />
-        停止录音
+        说话中（松口即停）
       </Button>
     );
   }

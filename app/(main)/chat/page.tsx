@@ -4,7 +4,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { stripJsonFromMessage } from '@/lib/utils';
 import { useChatStore } from '@/stores/chat-store';
+import { useAgentStream } from '@/hooks/use-agent-stream';
+import type { IQuestionSetPopulated } from '@/types';
 
 const EXAMPLE_PROMPTS = [
   '最近练习情况',
@@ -15,9 +18,11 @@ const EXAMPLE_PROMPTS = [
 
 export default function ChatPage() {
   const router = useRouter();
-  const { messages, loading, addMessage, appendToLastMessage, setLoading, reset } = useChatStore();
+  const { messages, loading, reset, appendToLastMessage } = useChatStore();
+  const { sendToAgent, generatedSetId, setGeneratedSetId } = useAgentStream();
   const [input, setInput] = useState('');
-  const [generatedSetId, setGeneratedSetId] = useState<string | null>(null);
+  const [generateImages, setGenerateImages] = useState(false);
+  const [imageGenProgress, setImageGenProgress] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -30,70 +35,61 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (messages.length === 0) setGeneratedSetId(null);
-  }, [messages.length]);
+  }, [messages.length, setGeneratedSetId]);
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || loading) return;
-    setInput('');
-    addMessage({ role: 'user', content: text });
-    setLoading(true);
-    setGeneratedSetId(null);
-    addMessage({ role: 'assistant', content: '' });
-    try {
-      const res = await fetch('/api/agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, { role: 'user', content: text }],
-        }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? '请求失败');
-      }
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      if (reader) {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6)) as {
-                  type?: string;
-                  content?: string;
-                  message?: string;
-                  generatedSetId?: string;
-                };
-                if (data.type === 'token' && typeof data.content === 'string') {
-                  appendToLastMessage(data.content);
-                } else if (data.type === 'metadata' && data.generatedSetId) {
-                  setGeneratedSetId(data.generatedSetId);
-                } else if (data.type === 'error') {
-                  appendToLastMessage(`\n\n错误：${data.message ?? '未知错误'}`);
-                }
-              } catch {
-                // ignore parse errors
-              }
-            }
+  useEffect(() => {
+    if (!generatedSetId || !generateImages) return;
+    let cancelled = false;
+    (async () => {
+      setImageGenProgress('正在获取题目...');
+      try {
+        const setsRes = await fetch('/api/sets');
+        if (!setsRes.ok || cancelled) return;
+        const sets = (await setsRes.json()) as IQuestionSetPopulated[];
+        const set = sets.find((s) => String(s._id) === generatedSetId);
+        if (!set?.questionIds?.length || cancelled) {
+          setImageGenProgress(null);
+          return;
+        }
+        const ids = set.questionIds.map((q) => String(q._id));
+        const total = ids.length;
+        let successCount = 0;
+        for (let i = 0; i < ids.length && !cancelled; i++) {
+          setImageGenProgress(`正在生成图片 ${i + 1}/${total}...`);
+          try {
+            const imgRes = await fetch('/api/generate-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ questionId: ids[i] }),
+            });
+            if (imgRes.ok) successCount += 1;
+            else console.error('[chat] generate-image failed:', ids[i], imgRes.status);
+          } catch (e) {
+            console.error('[chat] generate-image error:', ids[i], e);
           }
         }
+        if (!cancelled && successCount < total && successCount > 0) {
+          appendToLastMessage(`\n\n部分图片生成失败（${successCount}/${total} 张成功）`);
+        } else if (!cancelled && successCount === 0) {
+          appendToLastMessage('\n\n图片生成全部失败');
+        }
+      } catch {
+        setImageGenProgress('图片生成失败');
+      } finally {
+        if (!cancelled) setImageGenProgress(null);
       }
-    } catch (e) {
-      appendToLastMessage(`错误：${e instanceof Error ? e.message : '未知错误'}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [generatedSetId, generateImages]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    sendMessage(input.trim());
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput('');
+    sendToAgent(text);
   };
 
   return (
@@ -131,7 +127,7 @@ export default function ChatPage() {
                     key={prompt}
                     variant='outline'
                     size='sm'
-                    onClick={() => sendMessage(prompt)}
+                    onClick={() => sendToAgent(prompt)}
                     className='text-xs'>
                     {prompt}
                   </Button>
@@ -148,16 +144,24 @@ export default function ChatPage() {
                     : 'mr-auto max-w-[85%] rounded-lg border bg-background px-4 py-2'
                 }>
                 <p className='whitespace-pre-wrap text-sm'>
-                  {m.content || (m.role === "assistant" && loading ? "思考中..." : "")}
+                  {m.role === 'assistant'
+                    ? (stripJsonFromMessage(m.content) || (loading ? '思考中...' : ''))
+                    : m.content}
                 </p>
               </div>
             </div>
           ))}
           {generatedSetId && (
-            <div className='mr-auto'>
+            <div className='mr-auto flex flex-wrap items-center gap-2'>
+              {imageGenProgress && (
+                <span className='text-sm text-muted-foreground'>
+                  {imageGenProgress}
+                </span>
+              )}
               <Button
                 size='sm'
-                onClick={() => router.push(`/practice?setId=${generatedSetId}`)}>
+                onClick={() => router.push(`/practice?setId=${generatedSetId}`)}
+                disabled={!!imageGenProgress}>
                 开始练习
               </Button>
             </div>
@@ -167,6 +171,20 @@ export default function ChatPage() {
         <form
           onSubmit={handleSubmit}
           className='border-t p-4'>
+          <div className='mb-2 flex items-center gap-2'>
+            <input
+              type='checkbox'
+              id='generate-images'
+              checked={generateImages}
+              onChange={(e) => setGenerateImages(e.target.checked)}
+              className='h-4 w-4 rounded border'
+            />
+            <label
+              htmlFor='generate-images'
+              className='text-sm text-muted-foreground'>
+              生成题目时同时生成图片
+            </label>
+          </div>
           <div className='flex gap-2'>
             <input
               type='text'

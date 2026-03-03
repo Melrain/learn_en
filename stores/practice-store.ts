@@ -1,6 +1,10 @@
 import { create } from "zustand";
 
-export type RecordingStatus = "idle" | "recording" | "stopped";
+export type RecordingStatus =
+  | "idle"
+  | "waitingForSpeech" // 录音已开始，等待用户说话
+  | "recording" // 检测到用户正在说话
+  | "stopped";
 
 export interface PracticeState {
   currentSetId: string | null;

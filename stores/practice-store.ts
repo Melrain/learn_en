@@ -11,6 +11,8 @@ export interface PracticeState {
   taskId: string | null;
   result: unknown | null;
   loading: boolean;
+  /** 阿里云鉴权 ID，有效期 120 分钟，可缓存复用 */
+  warrantId: string | null;
 }
 
 export interface PracticeActions {
@@ -21,6 +23,7 @@ export interface PracticeActions {
   setTaskId: (taskId: string | null) => void;
   setResult: (result: unknown | null) => void;
   setLoading: (loading: boolean) => void;
+  setWarrantId: (warrantId: string | null) => void;
   reset: () => void;
 }
 
@@ -33,6 +36,7 @@ const initialState: PracticeState = {
   taskId: null,
   result: null,
   loading: false,
+  warrantId: null,
 };
 
 export const usePracticeStore = create<PracticeState & PracticeActions>(
@@ -52,6 +56,7 @@ export const usePracticeStore = create<PracticeState & PracticeActions>(
     setTaskId: (taskId) => set({ taskId }),
     setResult: (result) => set({ result, loading: false }),
     setLoading: (loading) => set({ loading }),
+    setWarrantId: (warrantId) => set({ warrantId }),
     reset: () => set(initialState),
   }),
 );

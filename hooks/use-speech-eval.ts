@@ -1,0 +1,195 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import { usePracticeStore } from "@/stores/practice-store";
+
+declare global {
+  interface Window {
+    EngineEvaluat: new (params: EngineEvaluatParams) => EngineEvaluatInstance;
+  }
+}
+
+interface EngineEvaluatParams {
+  applicationId: string;
+  userId: string;
+  engineFirstInitDone?: () => void;
+  engineBackResultDone?: (msg: string) => void;
+  engineBackResultFail?: (msg: string) => void;
+  micAllowCallback?: () => void;
+  micForbidCallback?: () => void;
+  micVolumeCallback?: (data: number) => void;
+  JSSDKNotSupport?: () => void;
+  noNetwork?: () => void;
+}
+
+interface EngineEvaluatInstance {
+  startRecord: (
+    params: { coreType: string; refText: string; warrantId: string; evalTime?: number },
+  ) => void;
+  stopRecord: () => void;
+  cancelRecord: () => void;
+}
+
+function calcEvalTime(refText: string): number {
+  const words = refText.trim().split(/\s+/).length;
+  return 2000 + words * 600 + 1000;
+}
+
+/**
+ * 封装阿里云语音评测 SDK：初始化、录音、停止。
+ * 依赖 engine.js 已通过 Script 加载。
+ */
+export function useSpeechEval() {
+  const engineRef = useRef<EngineEvaluatInstance | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const initPromiseRef = useRef<Promise<void> | null>(null);
+
+  const {
+    setRecordingStatus,
+    setResult,
+    setLoading,
+    warrantId,
+    setWarrantId,
+  } = usePracticeStore();
+
+  const ensureEngine = useCallback((): Promise<void> => {
+    if (initPromiseRef.current) return initPromiseRef.current;
+
+    const promise = new Promise<void>((resolve, reject) => {
+      const Engine = typeof window !== "undefined" ? window.EngineEvaluat : null;
+      if (!Engine) {
+        reject(new Error("EngineEvaluat not loaded. Ensure engine.js is loaded."));
+        return;
+      }
+
+      const appId = process.env.NEXT_PUBLIC_ALIYUN_APP_ID;
+      const userId = process.env.NEXT_PUBLIC_ALIYUN_USER_ID;
+      if (!appId || !userId) {
+        reject(new Error("Missing NEXT_PUBLIC_ALIYUN_APP_ID or NEXT_PUBLIC_ALIYUN_USER_ID"));
+        return;
+      }
+
+      const instance = new Engine({
+        applicationId: appId,
+        userId,
+        engineFirstInitDone: () => {
+          setIsReady(true);
+          resolve();
+        },
+        engineBackResultDone: (msg: string) => {
+          try {
+            setResult(JSON.parse(msg));
+          } catch {
+            setResult(null);
+          }
+          setLoading(false);
+          setRecordingStatus("idle");
+        },
+        engineBackResultFail: (msg: string) => {
+          console.error("[speech-eval] fail:", msg);
+          setLoading(false);
+          setRecordingStatus("idle");
+        },
+        micAllowCallback: () => {},
+        micForbidCallback: () => {
+          console.warn("[speech-eval] microphone forbidden");
+        },
+        JSSDKNotSupport: () => {
+          reject(new Error("Browser does not support speech evaluation"));
+        },
+        noNetwork: () => {
+          reject(new Error("No network"));
+        },
+      });
+
+      engineRef.current = instance;
+    }).catch((err) => {
+      initPromiseRef.current = null;
+      throw err;
+    });
+
+    initPromiseRef.current = promise;
+    return promise;
+  }, [
+    setRecordingStatus,
+    setResult,
+    setLoading,
+  ]);
+
+  const getWarrantId = useCallback(async (): Promise<string> => {
+    if (warrantId) return warrantId;
+
+    let clientIp: string | undefined;
+    const ipServices = [
+      "https://api.ipify.org?format=json",
+      "https://ip.seeip.org/json",
+    ];
+    for (const url of ipServices) {
+      try {
+        const ipRes = await fetch(url);
+        const ipData = (await ipRes.json()) as { ip?: string };
+        if (ipData?.ip) {
+          clientIp = ipData.ip;
+          break;
+        }
+      } catch {
+        // try next service or fallback to server-determined IP
+      }
+    }
+
+    const res = await fetch("/api/warrant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(clientIp ? { clientIp } : {}),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { error?: string })?.error ?? "Failed to get warrant");
+    }
+    const { warrantId: id } = (await res.json()) as { warrantId: string };
+    setWarrantId(id);
+    return id;
+  }, [warrantId, setWarrantId]);
+
+  const startEval = useCallback(
+    async (refText: string, coreType: string) => {
+      await ensureEngine();
+
+      const wId = await getWarrantId();
+      const evalTime = calcEvalTime(refText);
+
+      engineRef.current?.startRecord({
+        coreType,
+        refText,
+        warrantId: wId,
+        evalTime,
+      });
+
+      setRecordingStatus("recording");
+      setLoading(false);
+    },
+    [ensureEngine, getWarrantId, setRecordingStatus, setLoading],
+  );
+
+  const stopEval = useCallback(() => {
+    if (engineRef.current) {
+      engineRef.current.stopRecord();
+      setRecordingStatus("stopped");
+      setLoading(true);
+    }
+  }, [setRecordingStatus, setLoading]);
+
+  const cancelEval = useCallback(() => {
+    engineRef.current?.cancelRecord();
+    setRecordingStatus("idle");
+    setLoading(false);
+  }, [setRecordingStatus, setLoading]);
+
+  return {
+    isReady,
+    startEval,
+    stopEval,
+    cancelEval,
+    ensureEngine,
+  };
+}

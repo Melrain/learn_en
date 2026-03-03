@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RecordButton } from "@/components/practice/RecordButton";
+import { Volume2, Loader2 } from "lucide-react";
 import { ScoreCard } from "@/components/practice/ScoreCard";
 import { usePracticeStore } from "@/stores/practice-store";
 import { useSpeechEval } from "@/hooks/use-speech-eval";
@@ -17,11 +18,35 @@ const CORE_OPTIONS: { value: string; label: string }[] = [
   { value: "en.pred.score", label: "段落" },
 ];
 
+const TTS_SPEECH_RATE_OPTIONS: { value: number; label: string }[] = [
+  { value: -500, label: "0.5x" },
+  { value: 0, label: "1x" },
+  { value: 166, label: "1.2x" },
+  { value: 250, label: "1.5x" },
+  { value: 500, label: "2x" },
+];
+
+const TTS_VOICE_OPTIONS: { value: string; label: string }[] = [
+  { value: "cally", label: "cally 美音女（口语）" },
+  { value: "abby", label: "abby 美音女" },
+  { value: "andy", label: "andy 美音男" },
+  { value: "eric", label: "eric 英音男" },
+  { value: "emily", label: "emily 英音女" },
+  { value: "harry", label: "harry 英音男" },
+  { value: "luna", label: "luna 英音女" },
+  { value: "luca", label: "luca 英音男" },
+  { value: "wendy", label: "wendy 英音女" },
+  { value: "william", label: "william 英音男" },
+];
+
 export default function PracticeTestPage() {
   const [refText, setRefText] = useState(DEFAULT_REF_TEXT);
   const [coreType, setCoreType] = useState("en.sent.score");
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkError, setSdkError] = useState<string | null>(null);
+  const [ttsLoading, setTtsLoading] = useState(false);
+  const [ttsSpeechRate, setTtsSpeechRate] = useState(0);
+  const [ttsVoice, setTtsVoice] = useState("cally");
 
   const { recordingStatus, result, loading, setResult } = usePracticeStore();
   const { startEval, stopEval, ensureEngine } = useSpeechEval();
@@ -39,6 +64,45 @@ export default function PracticeTestPage() {
       await startEval(text, coreType);
     } catch (e) {
       setSdkError(e instanceof Error ? e.message : "启动失败");
+    }
+  };
+
+  const handlePlayPronunciation = async () => {
+    const text = refText.trim();
+    if (!text) {
+      setSdkError("请输入评测文本");
+      return;
+    }
+    setSdkError(null);
+    setTtsLoading(true);
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          speech_rate: ttsSpeechRate,
+          voice: ttsVoice,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error ?? "TTS 请求失败");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      try {
+        await audio.play();
+        audio.onended = () => URL.revokeObjectURL(url);
+      } catch (playErr) {
+        URL.revokeObjectURL(url);
+        throw playErr;
+      }
+    } catch (e) {
+      setSdkError(e instanceof Error ? e.message : "播放失败");
+    } finally {
+      setTtsLoading(false);
     }
   };
 
@@ -93,8 +157,54 @@ export default function PracticeTestPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-muted/30 p-6">
-          <p className="text-lg leading-relaxed">{refText || "（请输入评测文本）"}</p>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">语速（TTS）</label>
+          <div className="flex gap-2">
+            {TTS_SPEECH_RATE_OPTIONS.map((opt) => (
+              <Button
+                key={opt.value}
+                variant={ttsSpeechRate === opt.value ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTtsSpeechRate(opt.value)}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">发音人（TTS）</label>
+          <select
+            value={ttsVoice}
+            onChange={(e) => setTtsVoice(e.target.value)}
+            className="rounded-md border bg-background px-3 py-2 text-sm"
+          >
+            {TTS_VOICE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg border bg-muted/30 p-6 flex-1">
+            <p className="text-lg leading-relaxed">{refText || "（请输入评测文本）"}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handlePlayPronunciation}
+            disabled={!refText.trim() || ttsLoading}
+            title="标准发音"
+          >
+            {ttsLoading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Volume2 className="size-4" />
+            )}
+          </Button>
         </div>
 
         {!sdkReady && !sdkError && (

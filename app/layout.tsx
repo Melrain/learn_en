@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Learn EN - 口语测评",
   description: "中英文口语智能评测",
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({

@@ -70,6 +70,12 @@ export function useSpeechEval() {
     silenceTimeoutMs: VAD_SILENCE_TIMEOUT,
   });
   const autoStopRef = useRef<() => void>(() => {});
+  const lastDebugUpdateRef = useRef(0);
+  const [debugVolume, setDebugVolume] = useState<{
+    volume: number;
+    phase: string;
+    isSpeaking: boolean;
+  } | null>(null);
 
   const {
     recordingStatus,
@@ -127,6 +133,10 @@ export function useSpeechEval() {
     setRecordingStatus("idle");
     setLoading(false);
   }, [setRecordingStatus, setLoading]);
+
+  useEffect(() => {
+    if (recordingStatus === "idle") setDebugVolume(null);
+  }, [recordingStatus]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -230,6 +240,15 @@ export function useSpeechEval() {
           if (vad.phase === "idle") return;
 
           const isSpeaking = volume > VAD_VOLUME_THRESHOLD;
+
+          if (now - lastDebugUpdateRef.current >= 200) {
+            lastDebugUpdateRef.current = now;
+            setDebugVolume({
+              volume,
+              phase: vad.phase,
+              isSpeaking,
+            });
+          }
 
           if (vad.phase === "waitingForSpeech" && isSpeaking) {
             vad.phase = "speaking";
@@ -464,5 +483,6 @@ export function useSpeechEval() {
     cancelEval,
     ensureEngine,
     resetEngine,
+    debugVolume,
   };
 }

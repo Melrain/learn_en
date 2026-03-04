@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
     const body = await request.json();
-    const { refText, type, coreType, difficulty, sortOrder } = body;
+    const { refText, type, coreType, difficulty, sortOrder, imageUrl, source } =
+      body;
 
     if (!refText || !type) {
       return NextResponse.json(
@@ -37,6 +38,8 @@ export async function POST(request: NextRequest) {
       coreType: coreType ?? null,
       difficulty: difficulty ?? 1,
       sortOrder: sortOrder ?? 0,
+      imageUrl: imageUrl ?? null,
+      source: source ?? 'manual',
     });
 
     return NextResponse.json(question);

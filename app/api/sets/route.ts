@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Types } from "mongoose";
 import connectDB from "@/lib/db";
 import QuestionSet from "@/models/QuestionSet";
 
@@ -29,11 +30,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
     }
 
+    const validQuestionIds = Array.isArray(questionIds)
+      ? (questionIds as string[])
+          .filter((qId: string) => Types.ObjectId.isValid(qId))
+          .map((qId: string) => new Types.ObjectId(qId))
+      : [];
+
     const set = await QuestionSet.create({
       name,
       description: description ?? "",
       sortOrder: sortOrder ?? 0,
-      questionIds: questionIds ?? [],
+      questionIds: validQuestionIds,
     });
 
     return NextResponse.json(set);

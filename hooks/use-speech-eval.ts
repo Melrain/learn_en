@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePracticeStore } from "@/stores/practice-store";
 
 declare global {
@@ -122,6 +122,28 @@ export function useSpeechEval() {
     };
     setRecordingStatus("idle");
     setLoading(false);
+  }, [setRecordingStatus, setLoading]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && engineRef.current) {
+        engineRef.current.cancelRecord();
+        initPromiseRef.current = null;
+        engineRef.current = null;
+        const vad = vadStateRef.current;
+        if (vad.silenceTimerId) clearTimeout(vad.silenceTimerId);
+        if (vad.maxRecordTimerId) clearTimeout(vad.maxRecordTimerId);
+        vad.phase = "idle";
+        vad.speechStartedAt = null;
+        vad.lastSpeechAt = null;
+        vad.silenceTimerId = null;
+        vad.maxRecordTimerId = null;
+        setRecordingStatus("idle");
+        setLoading(false);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, [setRecordingStatus, setLoading]);
 
   const ensureEngine = useCallback((): Promise<void> => {

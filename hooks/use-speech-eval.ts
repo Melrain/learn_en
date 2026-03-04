@@ -44,6 +44,29 @@ function calcEvalTime(refText: string): number {
   return 2000 + words * 600 + 1000;
 }
 
+let _audioUnlockAttempted = false;
+
+/**
+ * 在用户手势的同步调用栈中解锁 AudioContext，解决 iOS Safari 上
+ * micVolumeCallback 不触发的问题。必须在点击「开始录音」时、任何 await 之前调用。
+ */
+export function unlockAudioContext(): void {
+  if (_audioUnlockAttempted || typeof window === "undefined") return;
+  _audioUnlockAttempted = true;
+  try {
+    const w = window as Window & { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
+    const Ctx = w.AudioContext || w.webkitAudioContext;
+    if (Ctx) {
+      const ctx = new Ctx();
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * 封装阿里云语音评测 SDK：初始化、录音、停止。
  * 依赖 engine.js 已通过 Script 加载。

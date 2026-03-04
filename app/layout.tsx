@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ViewTransitions } from "next-view-transitions";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -33,14 +32,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ViewTransitions>
-      <html lang="zh-CN">
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
-        >
-          {children}
-        </body>
-      </html>
-    </ViewTransitions>
+    <html lang="zh-CN">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
+      >
+        {children}
+      </body>
+    </html>
   );
 }

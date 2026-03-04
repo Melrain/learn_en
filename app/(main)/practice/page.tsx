@@ -1,7 +1,7 @@
 'use client';
 
 import Script from 'next/script';
-import { Link } from 'next-view-transitions';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';

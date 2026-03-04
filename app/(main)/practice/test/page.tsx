@@ -1,7 +1,7 @@
 "use client";
 
 import Script from "next/script";
-import { Link } from "next-view-transitions";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RecordButton } from "@/components/practice/RecordButton";

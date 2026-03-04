@@ -346,25 +346,20 @@ export function useSpeechEval() {
         v.maxRecordTimerId = null;
       }
 
+      setRecordingStatus("waitingForSpeech");
+      setLoading(false);
+
       const silenceTimeoutMs =
         options?.silenceTimeoutMs ?? v.silenceTimeoutMs ?? VAD_SILENCE_TIMEOUT;
-      v.phase = "waitingForSpeech";
-      v.speechStartedAt = null;
-      v.lastSpeechAt = null;
-      v.silenceTimerId = null;
-      v.silenceTimeoutMs = silenceTimeoutMs;
 
       try {
         await ensureEngine();
       } catch (e) {
-        v.phase = "idle";
+        setRecordingStatus("idle");
         throw e;
       }
 
       const wId = await getWarrantId();
-      v.maxRecordTimerId = setTimeout(() => {
-        autoStopRef.current();
-      }, VAD_MAX_RECORD_MS);
 
       try {
         engineRef.current?.startRecord({
@@ -380,20 +375,32 @@ export function useSpeechEval() {
           e instanceof Error &&
           /MediaStream|createMediaStreamSource/i.test(e.message)
         ) {
-          await ensureEngine();
-          engineRef.current?.startRecord({
-            coreType,
-            refText,
-            warrantId: wId,
-            evalTime: VAD_MAX_RECORD_MS,
-          });
+          try {
+            await ensureEngine();
+            engineRef.current?.startRecord({
+              coreType,
+              refText,
+              warrantId: wId,
+              evalTime: VAD_MAX_RECORD_MS,
+            });
+          } catch (retryErr) {
+            setRecordingStatus("idle");
+            throw retryErr;
+          }
         } else {
+          setRecordingStatus("idle");
           throw e;
         }
       }
 
-      setRecordingStatus("waitingForSpeech");
-      setLoading(false);
+      v.phase = "waitingForSpeech";
+      v.speechStartedAt = null;
+      v.lastSpeechAt = null;
+      v.silenceTimerId = null;
+      v.silenceTimeoutMs = silenceTimeoutMs;
+      v.maxRecordTimerId = setTimeout(() => {
+        autoStopRef.current();
+      }, VAD_MAX_RECORD_MS);
     },
     [
       recordingStatus,

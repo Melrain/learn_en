@@ -376,7 +376,20 @@ export function useSpeechEval() {
       } catch (e) {
         initPromiseRef.current = null;
         engineRef.current = null;
-        throw e;
+        if (
+          e instanceof Error &&
+          /MediaStream|createMediaStreamSource/i.test(e.message)
+        ) {
+          await ensureEngine();
+          engineRef.current?.startRecord({
+            coreType,
+            refText,
+            warrantId: wId,
+            evalTime: VAD_MAX_RECORD_MS,
+          });
+        } else {
+          throw e;
+        }
       }
 
       setRecordingStatus("waitingForSpeech");

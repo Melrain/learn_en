@@ -377,7 +377,7 @@ export function useSpeechEval() {
         ) {
           try {
             await ensureEngine();
-            const retryEngine = engineRef.current;
+            const retryEngine = engineRef.current as EngineEvaluatInstance | null;
             retryEngine?.startRecord({
               coreType,
               refText,

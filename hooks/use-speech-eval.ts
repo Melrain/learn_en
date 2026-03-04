@@ -104,6 +104,25 @@ export function useSpeechEval() {
 
   autoStopRef.current = autoStop;
 
+  const resetEngine = useCallback(() => {
+    initPromiseRef.current = null;
+    engineRef.current = null;
+    setIsReady(false);
+    const vad = vadStateRef.current;
+    if (vad.silenceTimerId) clearTimeout(vad.silenceTimerId);
+    if (vad.maxRecordTimerId) clearTimeout(vad.maxRecordTimerId);
+    vadStateRef.current = {
+      phase: "idle",
+      speechStartedAt: null,
+      lastSpeechAt: null,
+      silenceTimerId: null,
+      maxRecordTimerId: null,
+      silenceTimeoutMs: VAD_SILENCE_TIMEOUT,
+    };
+    setRecordingStatus("idle");
+    setLoading(false);
+  }, [setRecordingStatus, setLoading]);
+
   const ensureEngine = useCallback((): Promise<void> => {
     if (initPromiseRef.current) return initPromiseRef.current;
 
@@ -177,9 +196,6 @@ export function useSpeechEval() {
           const vad = vadStateRef.current;
           const now = Date.now();
 
-          // 调校参数时可取消下一行注释，观察回调频率和 volume 值范围
-          // if (vad.phase !== "idle") console.log("[vad] volume:", volume, "phase:", vad.phase);
-
           if (vad.phase === "idle") return;
 
           const isSpeaking = volume > VAD_VOLUME_THRESHOLD;
@@ -220,8 +236,6 @@ export function useSpeechEval() {
 
     const timeoutPromise = new Promise<void>((_, reject) => {
       const timeoutId = setTimeout(() => {
-        initPromiseRef.current = null;
-        engineRef.current = null;
         reject(new Error("SDK 初始化超时，请重试"));
       }, 10000);
       mainPromise.finally(() => clearTimeout(timeoutId));
@@ -230,6 +244,7 @@ export function useSpeechEval() {
     const promise = Promise.race([mainPromise, timeoutPromise]).catch((err) => {
       initPromiseRef.current = null;
       engineRef.current = null;
+      setIsReady(false);
       throw err;
     });
 
@@ -368,5 +383,6 @@ export function useSpeechEval() {
     stopEval,
     cancelEval,
     ensureEngine,
+    resetEngine,
   };
 }

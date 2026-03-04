@@ -39,7 +39,9 @@ function PracticePageContent() {
   const [setsLoading, setSetsLoading] = useState(true);
   const [setsError, setSetsError] = useState<string | null>(null);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
-  const [sdkReady, setSdkReady] = useState(false);
+  const [sdkReady, setSdkReady] = useState(
+    () => typeof window !== 'undefined' && !!window.EngineEvaluat,
+  );
   const [sdkError, setSdkError] = useState<string | null>(null);
   const [ttsSpeechRate, setTtsSpeechRate] = useState(0);
   const [silenceTimeoutMs, setSilenceTimeoutMs] = useState(1800);
@@ -54,8 +56,37 @@ function PracticePageContent() {
     setResult,
   } = usePracticeStore();
 
-  const { startEval, stopEval, ensureEngine } = useSpeechEval();
+  const { startEval, stopEval, ensureEngine, resetEngine } = useSpeechEval();
   const lastSavedResultRef = useRef<unknown>(null);
+
+  useEffect(() => {
+    const checkSdk = () =>
+      typeof window !== 'undefined' && !!window.EngineEvaluat;
+
+    if (checkSdk()) {
+      setSdkReady(true);
+      return;
+    }
+
+    const timer = setInterval(() => {
+      if (checkSdk()) {
+        setSdkReady(true);
+        clearInterval(timer);
+      }
+    }, 300);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && checkSdk()) {
+        setSdkReady(true);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,6 +199,7 @@ function PracticePageContent() {
       const coreType = getCoreType(currentQuestion);
       await startEval(refText, coreType, { silenceTimeoutMs });
     } catch (e) {
+      resetEngine();
       setSdkError(e instanceof Error ? e.message : '启动失败');
     }
   };

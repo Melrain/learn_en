@@ -72,6 +72,7 @@ export function useSpeechEval() {
   const autoStopRef = useRef<() => void>(() => {});
 
   const {
+    recordingStatus,
     setRecordingStatus,
     setResult,
     setLoading,
@@ -301,41 +302,39 @@ export function useSpeechEval() {
       coreType: string,
       options?: { silenceTimeoutMs?: number },
     ) => {
-      const vad = vadStateRef.current;
-      if (vad.phase !== "idle") return;
+      if (recordingStatus !== "idle") return;
 
-      vad.phase = "waitingForSpeech";
+      const v = vadStateRef.current;
+      if (v.phase !== "idle") return;
+
+      if (v.silenceTimerId) {
+        clearTimeout(v.silenceTimerId);
+        v.silenceTimerId = null;
+      }
+      if (v.maxRecordTimerId) {
+        clearTimeout(v.maxRecordTimerId);
+        v.maxRecordTimerId = null;
+      }
+
+      const silenceTimeoutMs =
+        options?.silenceTimeoutMs ?? v.silenceTimeoutMs ?? VAD_SILENCE_TIMEOUT;
+      v.phase = "waitingForSpeech";
+      v.speechStartedAt = null;
+      v.lastSpeechAt = null;
+      v.silenceTimerId = null;
+      v.silenceTimeoutMs = silenceTimeoutMs;
+
       try {
         await ensureEngine();
       } catch (e) {
-        vad.phase = "idle";
+        v.phase = "idle";
         throw e;
       }
 
-      const vadCur = vadStateRef.current;
-      if (vadCur.silenceTimerId) {
-        clearTimeout(vadCur.silenceTimerId);
-        vadCur.silenceTimerId = null;
-      }
-      if (vadCur.maxRecordTimerId) {
-        clearTimeout(vadCur.maxRecordTimerId);
-        vadCur.maxRecordTimerId = null;
-      }
-
       const wId = await getWarrantId();
-      const silenceTimeoutMs =
-        options?.silenceTimeoutMs ?? vadCur.silenceTimeoutMs ?? VAD_SILENCE_TIMEOUT;
-
-      vadStateRef.current = {
-        phase: "waitingForSpeech",
-        speechStartedAt: null,
-        lastSpeechAt: null,
-        silenceTimerId: null,
-        silenceTimeoutMs,
-        maxRecordTimerId: setTimeout(() => {
-          autoStopRef.current();
-        }, VAD_MAX_RECORD_MS),
-      };
+      v.maxRecordTimerId = setTimeout(() => {
+        autoStopRef.current();
+      }, VAD_MAX_RECORD_MS);
 
       engineRef.current?.startRecord({
         coreType,
@@ -347,7 +346,13 @@ export function useSpeechEval() {
       setRecordingStatus("waitingForSpeech");
       setLoading(false);
     },
-    [ensureEngine, getWarrantId, setRecordingStatus, setLoading],
+    [
+      recordingStatus,
+      ensureEngine,
+      getWarrantId,
+      setRecordingStatus,
+      setLoading,
+    ],
   );
 
   const stopEval = useCallback(() => {

@@ -11,7 +11,7 @@ import { SetSelector } from '@/components/practice/SetSelector';
 import { QuestionCard } from '@/components/practice/QuestionCard';
 import { PracticeStateLayout } from '@/components/practice/PracticeStateLayout';
 import { usePracticeStore } from '@/stores/practice-store';
-import { useSpeechEval } from '@/hooks/use-speech-eval';
+import { useSpeechEval, unlockAudioContext } from '@/hooks/use-speech-eval';
 import { QUESTION_TYPES, type QuestionTypeKey } from '@/lib/constants';
 import type { IQuestion, IQuestionSetPopulated } from '@/types';
 
@@ -59,6 +59,20 @@ function PracticePageContent() {
   const { startEval, stopEval, ensureEngine, resetEngine, debugVolume } =
     useSpeechEval();
   const lastSavedResultRef = useRef<unknown>(null);
+
+  useEffect(() => {
+    const unlock = () => {
+      unlockAudioContext();
+      document.removeEventListener('touchend', unlock);
+      document.removeEventListener('mousedown', unlock);
+    };
+    document.addEventListener('touchend', unlock, { once: true, passive: true });
+    document.addEventListener('mousedown', unlock, { once: true, passive: true });
+    return () => {
+      document.removeEventListener('touchend', unlock);
+      document.removeEventListener('mousedown', unlock);
+    };
+  }, []);
 
   useEffect(() => {
     const checkSdk = () =>
@@ -341,6 +355,7 @@ function PracticePageContent() {
               onStart={handleStartRecord}
               onStop={stopEval}
               disabled={!sdkReady}
+              onBeforeStart={unlockAudioContext}
             />
 
             {(recordingStatus === 'waitingForSpeech' ||

@@ -11,7 +11,7 @@ import { TTSSpeechRateButtons } from "@/components/practice/TTSSpeechRateButtons
 import { VADSilenceTimeoutButtons } from "@/components/practice/VADSilenceTimeoutButtons";
 import { TTS_VOICE_OPTIONS } from "@/lib/tts-constants";
 import { usePracticeStore } from "@/stores/practice-store";
-import { useSpeechEval } from "@/hooks/use-speech-eval";
+import { useSpeechEval, unlockAudioContext } from "@/hooks/use-speech-eval";
 
 const DEFAULT_REF_TEXT = "hello world";
 
@@ -34,6 +34,20 @@ export default function PracticeTestPage() {
   const { startEval, stopEval, ensureEngine, debugVolume } = useSpeechEval();
   const lastSavedResultRef = useRef<unknown>(null);
   const evalRefTextRef = useRef<string>("");
+
+  useEffect(() => {
+    const unlock = () => {
+      unlockAudioContext();
+      document.removeEventListener("touchend", unlock);
+      document.removeEventListener("mousedown", unlock);
+    };
+    document.addEventListener("touchend", unlock, { once: true, passive: true });
+    document.addEventListener("mousedown", unlock, { once: true, passive: true });
+    return () => {
+      document.removeEventListener("touchend", unlock);
+      document.removeEventListener("mousedown", unlock);
+    };
+  }, []);
 
   useEffect(() => {
     const data = result as {
@@ -183,6 +197,7 @@ export default function PracticeTestPage() {
           onStart={handleStartRecord}
           onStop={stopEval}
           disabled={!sdkReady}
+          onBeforeStart={unlockAudioContext}
         />
 
         {(recordingStatus === "waitingForSpeech" ||

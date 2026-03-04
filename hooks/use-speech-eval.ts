@@ -377,7 +377,8 @@ export function useSpeechEval() {
         ) {
           try {
             await ensureEngine();
-            engineRef.current?.startRecord({
+            const retryEngine = engineRef.current;
+            retryEngine?.startRecord({
               coreType,
               refText,
               warrantId: wId,

@@ -226,9 +226,10 @@ function PracticePageContent() {
   return (
     <>
       <Script
+        id='aliyun-speech-sdk'
         src='/sdk/engine.js'
         strategy='afterInteractive'
-        onLoad={() => {
+        onReady={() => {
           const ready =
             typeof window !== 'undefined' &&
             !!(window as { EngineEvaluat?: unknown }).EngineEvaluat;

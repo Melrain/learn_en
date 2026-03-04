@@ -195,8 +195,6 @@ export function useSpeechEval() {
           }
           setLoading(false);
           setRecordingStatus("idle");
-          initPromiseRef.current = null;
-          engineRef.current = null;
         },
         engineBackResultFail: (msg: string) => {
           const vad = vadStateRef.current;
@@ -211,8 +209,6 @@ export function useSpeechEval() {
           console.error("[speech-eval] fail:", msg);
           setLoading(false);
           setRecordingStatus("idle");
-          initPromiseRef.current = null;
-          engineRef.current = null;
         },
         micAllowCallback: () => {
           setIsReady(true);

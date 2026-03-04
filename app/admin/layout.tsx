@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "next-view-transitions";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu } from "lucide-react";
@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 const navLinks = [
+  { href: "/", label: "首页" },
   { href: "/admin", label: "仪表盘" },
   { href: "/admin/questions", label: "题目管理" },
   { href: "/admin/sets", label: "题目集合" },

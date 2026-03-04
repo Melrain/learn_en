@@ -124,3 +124,29 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* View Transitions API: 提升 PWA 页面切换的原生感 */
+@supports (view-transition-name: none) {
+  ::view-transition-old(root) {
+    animation: view-transition-fade-out 0.2s ease-out forwards;
+  }
+  ::view-transition-new(root) {
+    animation: view-transition-fade-in 0.25s ease-out forwards;
+  }
+  @keyframes view-transition-fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes view-transition-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}

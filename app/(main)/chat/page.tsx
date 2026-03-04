@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { Link, useTransitionRouter } from 'next-view-transitions';
 import { useRef, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { stripJsonFromMessage } from '@/lib/utils';
@@ -17,7 +16,7 @@ const EXAMPLE_PROMPTS = [
 ];
 
 export default function ChatPage() {
-  const router = useRouter();
+  const router = useTransitionRouter();
   const { messages, loading, reset, appendToLastMessage } = useChatStore();
   const { sendToAgent, generatedSetId, setGeneratedSetId } = useAgentStream();
   const [input, setInput] = useState('');

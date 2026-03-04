@@ -200,7 +200,12 @@ function PracticePageContent() {
       await startEval(refText, coreType, { silenceTimeoutMs });
     } catch (e) {
       resetEngine();
-      setSdkError(e instanceof Error ? e.message : '启动失败');
+      const msg = e instanceof Error ? e.message : '启动失败';
+      const isMediaStreamError =
+        /MediaStream|createMediaStreamSource/i.test(msg);
+      setSdkError(
+        isMediaStreamError ? '麦克风已被收回，请重新点击开始录音' : msg,
+      );
     }
   };
 

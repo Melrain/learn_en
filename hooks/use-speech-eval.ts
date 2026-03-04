@@ -97,7 +97,11 @@ export function useSpeechEval() {
     vad.lastSpeechAt = null;
 
     if (engineRef.current) {
-      engineRef.current.stopRecord();
+      try {
+        engineRef.current.stopRecord();
+      } catch {
+        /* 麦克风可能已被收回 */
+      }
       setRecordingStatus("stopped");
       setLoading(true);
     }
@@ -127,7 +131,11 @@ export function useSpeechEval() {
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden" && engineRef.current) {
-        engineRef.current.cancelRecord();
+        try {
+          engineRef.current.cancelRecord();
+        } catch {
+          /* 麦克风可能已被用户手动收回 */
+        }
         initPromiseRef.current = null;
         engineRef.current = null;
         const vad = vadStateRef.current;
@@ -358,12 +366,18 @@ export function useSpeechEval() {
         autoStopRef.current();
       }, VAD_MAX_RECORD_MS);
 
-      engineRef.current?.startRecord({
-        coreType,
-        refText,
-        warrantId: wId,
-        evalTime: VAD_MAX_RECORD_MS,
-      });
+      try {
+        engineRef.current?.startRecord({
+          coreType,
+          refText,
+          warrantId: wId,
+          evalTime: VAD_MAX_RECORD_MS,
+        });
+      } catch (e) {
+        initPromiseRef.current = null;
+        engineRef.current = null;
+        throw e;
+      }
 
       setRecordingStatus("waitingForSpeech");
       setLoading(false);
@@ -392,9 +406,16 @@ export function useSpeechEval() {
     vad.lastSpeechAt = null;
 
     if (engineRef.current) {
-      engineRef.current.stopRecord();
+      try {
+        engineRef.current.stopRecord();
+      } catch {
+        /* 麦克风可能已被收回 */
+      }
       setRecordingStatus("stopped");
       setLoading(true);
+    } else {
+      setRecordingStatus("idle");
+      setLoading(false);
     }
   }, [setRecordingStatus, setLoading]);
 

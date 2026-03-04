@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useChatStore } from "@/stores/chat-store";
 
 interface AgentSSEEvent {
@@ -13,6 +13,7 @@ interface AgentSSEEvent {
 export function useAgentStream() {
   const { messages, addMessage, appendToLastMessage, setLoading } = useChatStore();
   const [generatedSetId, setGeneratedSetId] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendToAgent = useCallback(
     async (userMessage: string) => {
@@ -21,6 +22,9 @@ export function useAgentStream() {
       setLoading(true);
       setGeneratedSetId(null);
       addMessage({ role: "assistant", content: "" });
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
       try {
         const res = await fetch("/api/agent", {
           method: "POST",
@@ -28,6 +32,7 @@ export function useAgentStream() {
           body: JSON.stringify({
             messages: [...messages, { role: "user", content: userMessage }],
           }),
+          signal,
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -62,6 +67,7 @@ export function useAgentStream() {
           }
         }
       } catch (e) {
+        if (e instanceof Error && e.name === "AbortError") return;
         appendToLastMessage(`错误：${e instanceof Error ? e.message : "未知错误"}`);
       } finally {
         setLoading(false);
@@ -70,5 +76,9 @@ export function useAgentStream() {
     [messages, addMessage, appendToLastMessage, setLoading],
   );
 
-  return { sendToAgent, generatedSetId, setGeneratedSetId };
+  const cancelRequest = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
+
+  return { sendToAgent, generatedSetId, setGeneratedSetId, cancelRequest };
 }

@@ -5,6 +5,7 @@ const QuestionSchema = new mongoose.Schema(
     refText: { type: String, required: true },
     type: { type: String, required: true },
     imageUrl: { type: String },
+    theme: { type: String },
     coreType: { type: String },
     difficulty: { type: Number, default: 1 },
     sortOrder: { type: Number, default: 0 },

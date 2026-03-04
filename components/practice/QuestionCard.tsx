@@ -31,8 +31,8 @@ export function QuestionCard({
         value={silenceTimeoutMs}
         onChange={onSilenceTimeoutChange}
       />
-      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-        <div className="w-full flex-1 space-y-3 rounded-lg border bg-muted/30 p-4 sm:p-6">
+      <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:items-center">
+        <div className="w-full min-w-0 flex-1 space-y-3 rounded-lg border bg-muted/30 p-4 sm:p-6">
           {imageUrl ? (
             <div className="relative aspect-video w-full max-w-md overflow-hidden rounded-md border">
               <Image
@@ -45,7 +45,7 @@ export function QuestionCard({
               />
             </div>
           ) : null}
-          <p className="text-lg leading-relaxed">{refText}</p>
+          <p className="min-w-0 text-lg leading-relaxed wrap-break-word">{refText}</p>
         </div>
         <PlayTTSButton
           text={refText}

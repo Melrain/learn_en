@@ -150,6 +150,10 @@ const QuestionInputSchema = z.object({
     .enum(["en-word", "en-sentence", "en-paragraph"])
     .describe("题型"),
   difficulty: z.number().min(1).max(5).default(1).describe("难度 1-5"),
+  theme: z
+    .string()
+    .optional()
+    .describe("可选，主题 id，如 ultraman/peppa/dinosaur/ocean 等"),
 });
 
 export const generateQuestions = tool(
@@ -173,6 +177,7 @@ export const generateQuestions = tool(
         difficulty: q.difficulty ?? 1,
         sortOrder: 0,
         source: "ai",
+        ...(q.theme && { theme: q.theme }),
       });
       ids.push(doc._id);
       created.push({
@@ -208,7 +213,7 @@ export const generateQuestions = tool(
   {
     name: "generate_questions",
     description:
-      "将 AI 生成的练习题写入数据库。输入题目数组，每道题目需包含 refText（英文文本）、type（en-word/en-sentence/en-paragraph）、difficulty（1-5）。可选 setName 创建新题集。",
+      "将 AI 生成的练习题写入数据库。输入题目数组，每道题目需包含 refText（英文文本）、type（en-word/en-sentence/en-paragraph）、difficulty（1-5）。可选 setName 创建新题集；可选 theme 传递主题 id（ultraman/peppa/dinosaur/ocean/space/farm/vehicles/food/ice-princess/superhero/egg-party/paw-patrol）用于儿童主题配图。",
     schema: z.object({
       questions: z.array(QuestionInputSchema).describe("题目列表"),
       setName: z

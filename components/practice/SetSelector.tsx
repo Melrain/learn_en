@@ -16,7 +16,7 @@ interface SetSelectorProps {
 
 export function SetSelector({ sets, urlSetId, onSelect }: SetSelectorProps) {
   const setIdNotFound =
-    urlSetId && !sets.some((s) => String(s._id) === urlSetId);
+    urlSetId && !sets.some((s) => String(s._id) === String(urlSetId));
 
   return (
     <div className="space-y-4">

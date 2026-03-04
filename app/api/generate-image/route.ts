@@ -3,13 +3,19 @@ import connectDB from "@/lib/db";
 import Question from "@/models/Question";
 import { generateImage } from "@/lib/dashscope-image";
 import { persistImageFromUrl } from "@/lib/image-storage";
+import { THEME_IMAGE_PROMPTS, type ThemeId } from "@/lib/themes";
 import { Types } from "mongoose";
 
 export const maxDuration = 60;
 
-function buildImagePrompt(refText: string): string {
+function buildImagePrompt(refText: string, theme?: string | null): string {
   const trimmed = refText.trim();
-  return `Illustration for English learning: "${trimmed}". Simple, clear, educational style. Suitable for language learning context.`;
+  const style =
+    theme &&
+    theme in THEME_IMAGE_PROMPTS
+      ? THEME_IMAGE_PROMPTS[theme as ThemeId]
+      : "cartoon, kid-friendly";
+  return `Kids-friendly illustration, ${style}. Show "${trimmed}" in a cute, cartoon way. Bright colors, no text in image. Educational for children.`;
 }
 
 export async function POST(request: NextRequest) {
@@ -55,7 +61,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = buildImagePrompt(refText);
+    const prompt = buildImagePrompt(refText, question.theme);
     const { imageUrl: tempUrl } = await generateImage({ prompt });
     const persistentPath = await persistImageFromUrl(tempUrl, questionId);
     await Question.findByIdAndUpdate(questionId, {

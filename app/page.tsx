@@ -11,7 +11,7 @@ export default function Home() {
         <p className="text-center text-muted-foreground">
           中英文口语智能评测，提升发音准确性。
         </p>
-        <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
+        <div className="flex min-w-0 flex-wrap justify-center gap-2 sm:gap-4">
           <Button asChild>
             <Link href="/practice">开始练习</Link>
           </Button>

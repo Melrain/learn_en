@@ -12,7 +12,7 @@ export function TTSSpeechRateButtons({ value, onChange }: TTSSpeechRateButtonsPr
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium text-muted-foreground">语速</label>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex min-w-0 flex-wrap gap-2">
         {TTS_SPEECH_RATE_OPTIONS.map((opt) => (
           <Button
             key={opt.value}

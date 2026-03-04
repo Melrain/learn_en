@@ -15,7 +15,7 @@ export function VADSilenceTimeoutButtons({
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium text-muted-foreground">松口时间</label>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex min-w-0 flex-wrap gap-2">
         {VAD_SILENCE_TIMEOUT_OPTIONS.map((opt) => (
           <Button
             key={opt.value}

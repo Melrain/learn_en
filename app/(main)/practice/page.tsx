@@ -115,13 +115,12 @@ function PracticePageContent() {
 
   useEffect(() => {
     const setId = searchParams.get('setId');
-    if (
-      setId &&
-      sets.length > 0 &&
-      sets.some((s) => s._id === setId) &&
-      !selectedSetId
-    ) {
-      const set = sets.find((s) => s._id === setId);
+    const setIdValid =
+      setId && sets.length > 0 && sets.some((s) => String(s._id) === setId);
+    const shouldSelect =
+      setIdValid && (selectedSetId === null || selectedSetId !== setId);
+    if (shouldSelect) {
+      const set = sets.find((s) => String(s._id) === setId);
       if (set) {
         const id = setId;
         const ids = set.questionIds.map((q) => String(q._id));
@@ -137,7 +136,9 @@ function PracticePageContent() {
     }
   }, [searchParams, sets, selectedSetId, setCurrentSet, setResult]);
 
-  const selectedSet = sets.find((s) => s._id === selectedSetId);
+  const selectedSet = sets.find(
+    (s) => String(s._id) === String(selectedSetId),
+  );
   const questions = selectedSet?.questionIds ?? [];
   const currentQuestion = questions[currentQuestionIndex];
 
@@ -174,7 +175,7 @@ function PracticePageContent() {
   }, [result, selectedSetId, currentQuestion]);
 
   const handleSelectSet = (setId: string) => {
-    const set = sets.find((s) => s._id === setId);
+    const set = sets.find((s) => String(s._id) === setId);
     if (set) {
       setSelectedSetId(setId);
       setCurrentSet(
@@ -279,7 +280,7 @@ function PracticePageContent() {
         onError={() => setSdkError('engine.js 加载失败')}
       />
       <div className='container mx-auto max-w-2xl space-y-6 px-4 py-6 sm:px-6 sm:py-12'>
-        <div className='flex flex-wrap items-center justify-between gap-2'>
+        <div className='flex min-w-0 flex-wrap items-center justify-between gap-2'>
           <h1 className='text-2xl font-bold'>口语练习</h1>
           <Button
             asChild
@@ -343,7 +344,7 @@ function PracticePageContent() {
 
             {result != null ? <ScoreCard result={result} /> : null}
 
-            <div className='flex justify-between gap-2 pt-4'>
+            <div className='flex min-w-0 flex-wrap justify-between gap-2 pt-4'>
               <Button
                 variant='outline'
                 disabled={currentQuestionIndex <= 0}

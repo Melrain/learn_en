@@ -164,6 +164,8 @@ export function useSpeechEval() {
           }
           setLoading(false);
           setRecordingStatus("idle");
+          initPromiseRef.current = null;
+          engineRef.current = null;
         },
         engineBackResultFail: (msg: string) => {
           const vad = vadStateRef.current;
@@ -178,6 +180,8 @@ export function useSpeechEval() {
           console.error("[speech-eval] fail:", msg);
           setLoading(false);
           setRecordingStatus("idle");
+          initPromiseRef.current = null;
+          engineRef.current = null;
         },
         micAllowCallback: () => {
           setIsReady(true);
@@ -297,21 +301,30 @@ export function useSpeechEval() {
       coreType: string,
       options?: { silenceTimeoutMs?: number },
     ) => {
-      await ensureEngine();
-
       const vad = vadStateRef.current;
-      if (vad.silenceTimerId) {
-        clearTimeout(vad.silenceTimerId);
-        vad.silenceTimerId = null;
+      if (vad.phase !== "idle") return;
+
+      vad.phase = "waitingForSpeech";
+      try {
+        await ensureEngine();
+      } catch (e) {
+        vad.phase = "idle";
+        throw e;
       }
-      if (vad.maxRecordTimerId) {
-        clearTimeout(vad.maxRecordTimerId);
-        vad.maxRecordTimerId = null;
+
+      const vadCur = vadStateRef.current;
+      if (vadCur.silenceTimerId) {
+        clearTimeout(vadCur.silenceTimerId);
+        vadCur.silenceTimerId = null;
+      }
+      if (vadCur.maxRecordTimerId) {
+        clearTimeout(vadCur.maxRecordTimerId);
+        vadCur.maxRecordTimerId = null;
       }
 
       const wId = await getWarrantId();
       const silenceTimeoutMs =
-        options?.silenceTimeoutMs ?? vad.silenceTimeoutMs ?? VAD_SILENCE_TIMEOUT;
+        options?.silenceTimeoutMs ?? vadCur.silenceTimeoutMs ?? VAD_SILENCE_TIMEOUT;
 
       vadStateRef.current = {
         phase: "waitingForSpeech",
@@ -373,6 +386,8 @@ export function useSpeechEval() {
     vad.lastSpeechAt = null;
 
     engineRef.current?.cancelRecord();
+    initPromiseRef.current = null;
+    engineRef.current = null;
     setRecordingStatus("idle");
     setLoading(false);
   }, [setRecordingStatus, setLoading]);

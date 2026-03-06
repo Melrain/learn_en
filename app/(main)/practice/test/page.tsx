@@ -31,7 +31,7 @@ export default function PracticeTestPage() {
   const [silenceTimeoutMs, setSilenceTimeoutMs] = useState(1800);
 
   const { recordingStatus, result, loading, setResult } = usePracticeStore();
-  const { startEval, stopEval, ensureEngine, resetEngine, debugVolume, getWarrantId } = useSpeechEval();
+  const { startEval, stopEval, ensureEngine, debugVolume, getWarrantId } = useSpeechEval();
   const lastSavedResultRef = useRef<unknown>(null);
   const evalRefTextRef = useRef<string>("");
 
@@ -78,12 +78,7 @@ export default function PracticeTestPage() {
       await ensureEngine();
       await startEval(text, coreType, { silenceTimeoutMs });
     } catch (e) {
-      resetEngine();
-      const msg = e instanceof Error ? e.message : "启动失败";
-      const isMediaStreamError = /MediaStream|createMediaStreamSource/i.test(msg);
-      setSdkError(
-        isMediaStreamError ? "麦克风已被收回，请重新点击开始录音" : msg
-      );
+      setSdkError(e instanceof Error ? e.message : "启动失败");
     }
   };
 

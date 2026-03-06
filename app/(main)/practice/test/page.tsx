@@ -76,7 +76,13 @@ export default function PracticeTestPage() {
     evalRefTextRef.current = text;
     try {
       await ensureEngine();
-      await startEval(text, coreType, { silenceTimeoutMs });
+      const minSpeechMs =
+        coreType === "en.word.score"
+          ? 150
+          : coreType === "en.pred.score"
+            ? 300
+            : 200;
+      await startEval(text, coreType, { silenceTimeoutMs, minSpeechMs });
     } catch (e) {
       setSdkError(e instanceof Error ? e.message : "启动失败");
     }

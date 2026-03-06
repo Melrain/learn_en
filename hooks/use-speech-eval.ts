@@ -34,8 +34,8 @@ interface EngineEvaluatInstance {
 const VAD_VOLUME_THRESHOLD = 8;
 /** 静音持续多久视为说完（ms） */
 const VAD_SILENCE_TIMEOUT = 1800;
-/** 最短说话时长，防止噪音误触发（ms） */
-const VAD_MIN_SPEECH_MS = 500;
+/** 最短说话时长，防止噪音误触发（ms），默认值，可被 options.minSpeechMs 覆盖 */
+const VAD_MIN_SPEECH_MS = 200;
 /** 兜底超时（ms），防止录音无限进行 */
 const VAD_MAX_RECORD_MS = 60_000;
 /** 引擎复用冷却期（ms），给 SDK 内部清理时间 */
@@ -63,6 +63,7 @@ export function useSpeechEval() {
     silenceTimerId: ReturnType<typeof setTimeout> | null;
     maxRecordTimerId: ReturnType<typeof setTimeout> | null;
     silenceTimeoutMs: number;
+    minSpeechMs: number;
   }>({
     phase: "idle",
     speechStartedAt: null,
@@ -70,6 +71,7 @@ export function useSpeechEval() {
     silenceTimerId: null,
     maxRecordTimerId: null,
     silenceTimeoutMs: VAD_SILENCE_TIMEOUT,
+    minSpeechMs: VAD_MIN_SPEECH_MS,
   });
   const autoStopRef = useRef<() => void>(() => {});
   const lastDebugUpdateRef = useRef(0);
@@ -141,6 +143,7 @@ export function useSpeechEval() {
       silenceTimerId: null,
       maxRecordTimerId: null,
       silenceTimeoutMs: VAD_SILENCE_TIMEOUT,
+      minSpeechMs: VAD_MIN_SPEECH_MS,
     };
     setRecordingStatus("idle");
     setLoading(false);
@@ -303,8 +306,19 @@ export function useSpeechEval() {
               vad.silenceTimerId = setTimeout(() => {
                 const speechDuration =
                   (vad.lastSpeechAt ?? now) - (vad.speechStartedAt ?? now);
-                if (speechDuration >= VAD_MIN_SPEECH_MS) {
+                const minMs = vad.minSpeechMs ?? VAD_MIN_SPEECH_MS;
+                if (speechDuration >= minMs) {
                   autoStopRef.current();
+                } else {
+                  vad.silenceTimerId = null;
+                  vad.phase = "waitingForSpeech";
+                  vad.speechStartedAt = null;
+                  vad.lastSpeechAt = null;
+                  setDebugInfo((prev) => ({
+                    ...(prev ?? { volume: 0, phase: "idle", isSpeaking: false, lastEvent: "" }),
+                    lastEvent: `tooShort: dur=${speechDuration}ms < min${minMs}ms, reset`,
+                  }));
+                  setRecordingStatus("waitingForSpeech");
                 }
               }, vad.silenceTimeoutMs);
             }
@@ -376,7 +390,7 @@ export function useSpeechEval() {
     async (
       refText: string,
       coreType: string,
-      options?: { silenceTimeoutMs?: number },
+      options?: { silenceTimeoutMs?: number; minSpeechMs?: number },
     ) => {
       if (recordingStatus !== "idle") return;
 
@@ -397,6 +411,8 @@ export function useSpeechEval() {
 
       const silenceTimeoutMs =
         options?.silenceTimeoutMs ?? v.silenceTimeoutMs ?? VAD_SILENCE_TIMEOUT;
+      const minSpeechMs =
+        options?.minSpeechMs ?? v.minSpeechMs ?? VAD_MIN_SPEECH_MS;
 
       try {
         await ensureEngine();
@@ -423,6 +439,7 @@ export function useSpeechEval() {
       v.lastSpeechAt = null;
       v.silenceTimerId = null;
       v.silenceTimeoutMs = silenceTimeoutMs;
+      v.minSpeechMs = minSpeechMs;
       v.maxRecordTimerId = setTimeout(() => {
         autoStopRef.current();
       }, VAD_MAX_RECORD_MS);
@@ -468,6 +485,7 @@ export function useSpeechEval() {
             });
             v.phase = "waitingForSpeech";
             v.silenceTimeoutMs = silenceTimeoutMs;
+            v.minSpeechMs = minSpeechMs;
             v.maxRecordTimerId = setTimeout(() => {
               autoStopRef.current();
             }, VAD_MAX_RECORD_MS);

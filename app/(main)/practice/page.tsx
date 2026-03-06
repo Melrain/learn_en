@@ -65,7 +65,7 @@ function PracticePageContent() {
       typeof window !== 'undefined' && !!window.EngineEvaluat;
 
     if (checkSdk()) {
-      setSdkReady(true);
+      queueMicrotask(() => setSdkReady(true));
       return;
     }
 
@@ -207,7 +207,13 @@ function PracticePageContent() {
     try {
       await ensureEngine();
       const coreType = getCoreType(currentQuestion);
-      await startEval(refText, coreType, { silenceTimeoutMs });
+      const minSpeechMs =
+        coreType === 'en.word.score'
+          ? 150
+          : coreType === 'en.pred.score'
+            ? 300
+            : 200;
+      await startEval(refText, coreType, { silenceTimeoutMs, minSpeechMs });
     } catch (e) {
       resetEngine();
       const msg = e instanceof Error ? e.message : '启动失败';

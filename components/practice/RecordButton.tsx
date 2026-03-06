@@ -10,8 +10,6 @@ interface RecordButtonProps {
   onStart: () => void;
   onStop: () => void;
   disabled?: boolean;
-  /** 在 touchend/mousedown 时调用，用于 iOS 上在用户手势内解锁 AudioContext */
-  onBeforeStart?: () => void;
 }
 
 export function RecordButton({
@@ -20,7 +18,6 @@ export function RecordButton({
   onStart,
   onStop,
   disabled,
-  onBeforeStart,
 }: RecordButtonProps) {
   const isWaiting = status === "waitingForSpeech";
   const isRecording = status === "recording";
@@ -70,8 +67,6 @@ export function RecordButton({
       variant="default"
       size="lg"
       onClick={onStart}
-      onMouseDown={onBeforeStart}
-      onTouchEnd={onBeforeStart}
       disabled={disabled}
       className="w-full gap-2 sm:w-auto"
     >

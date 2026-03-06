@@ -11,7 +11,7 @@ import { TTSSpeechRateButtons } from "@/components/practice/TTSSpeechRateButtons
 import { VADSilenceTimeoutButtons } from "@/components/practice/VADSilenceTimeoutButtons";
 import { TTS_VOICE_OPTIONS } from "@/lib/tts-constants";
 import { usePracticeStore } from "@/stores/practice-store";
-import { useSpeechEval, unlockAudioContext } from "@/hooks/use-speech-eval";
+import { useSpeechEval } from "@/hooks/use-speech-eval";
 
 const DEFAULT_REF_TEXT = "hello world";
 
@@ -31,23 +31,17 @@ export default function PracticeTestPage() {
   const [silenceTimeoutMs, setSilenceTimeoutMs] = useState(1800);
 
   const { recordingStatus, result, loading, setResult } = usePracticeStore();
-  const { startEval, stopEval, ensureEngine, debugVolume } = useSpeechEval();
+  const { startEval, stopEval, ensureEngine, resetEngine, debugVolume, getWarrantId } = useSpeechEval();
   const lastSavedResultRef = useRef<unknown>(null);
   const evalRefTextRef = useRef<string>("");
 
   useEffect(() => {
-    const unlock = () => {
-      unlockAudioContext();
-      document.removeEventListener("touchend", unlock);
-      document.removeEventListener("mousedown", unlock);
-    };
-    document.addEventListener("touchend", unlock, { once: true, passive: true });
-    document.addEventListener("mousedown", unlock, { once: true, passive: true });
-    return () => {
-      document.removeEventListener("touchend", unlock);
-      document.removeEventListener("mousedown", unlock);
-    };
-  }, []);
+    if (sdkReady) {
+      ensureEngine()
+        .then(() => getWarrantId())
+        .catch(() => {});
+    }
+  }, [sdkReady, ensureEngine, getWarrantId]);
 
   useEffect(() => {
     const data = result as {
@@ -84,7 +78,12 @@ export default function PracticeTestPage() {
       await ensureEngine();
       await startEval(text, coreType, { silenceTimeoutMs });
     } catch (e) {
-      setSdkError(e instanceof Error ? e.message : "启动失败");
+      resetEngine();
+      const msg = e instanceof Error ? e.message : "启动失败";
+      const isMediaStreamError = /MediaStream|createMediaStreamSource/i.test(msg);
+      setSdkError(
+        isMediaStreamError ? "麦克风已被收回，请重新点击开始录音" : msg
+      );
     }
   };
 
@@ -197,7 +196,6 @@ export default function PracticeTestPage() {
           onStart={handleStartRecord}
           onStop={stopEval}
           disabled={!sdkReady}
-          onBeforeStart={unlockAudioContext}
         />
 
         {(recordingStatus === "waitingForSpeech" ||

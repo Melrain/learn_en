@@ -56,7 +56,7 @@ function PracticePageContent() {
     setResult,
   } = usePracticeStore();
 
-  const { startEval, stopEval, ensureEngine, resetEngine, debugVolume, getWarrantId } =
+  const { startEval, stopEval, ensureEngine, resetEngine, debugInfo, getWarrantId } =
     useSpeechEval();
   const lastSavedResultRef = useRef<unknown>(null);
 
@@ -351,14 +351,17 @@ function PracticePageContent() {
               disabled={!sdkReady}
             />
 
-            {(recordingStatus === 'waitingForSpeech' ||
-              recordingStatus === 'recording') && (
+            {((recordingStatus === 'waitingForSpeech' ||
+              recordingStatus === 'recording' ||
+              recordingStatus === 'stopped') ||
+              (recordingStatus === 'idle' && debugInfo)) && (
               <p className='text-xs text-muted-foreground'>
-                {debugVolume ? (
+                {debugInfo ? (
                   <>
-                    调试：音量 {debugVolume.volume} | 阈值 8 |{' '}
-                    {debugVolume.isSpeaking ? '视为说话' : '静音'} | phase{' '}
-                    {debugVolume.phase}
+                    调试：音量 {debugInfo.volume} | 阈值 8 |{' '}
+                    {debugInfo.isSpeaking ? '视为说话' : '静音'} | phase{' '}
+                    {debugInfo.phase}
+                    {debugInfo.lastEvent ? ` | 事件: ${debugInfo.lastEvent}` : ''}
                   </>
                 ) : (
                   '等待音量回调…'

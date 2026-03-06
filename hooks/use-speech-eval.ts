@@ -38,6 +38,8 @@ const VAD_SILENCE_TIMEOUT = 1800;
 const VAD_MIN_SPEECH_MS = 500;
 /** 兜底超时（ms），防止录音无限进行 */
 const VAD_MAX_RECORD_MS = 60_000;
+/** 引擎复用冷却期（ms），给 SDK 内部清理时间 */
+const ENGINE_COOLDOWN_MS = 500;
 
 function calcEvalTime(refText: string): number {
   const words = refText.trim().split(/\s+/).length;
@@ -71,10 +73,12 @@ export function useSpeechEval() {
   });
   const autoStopRef = useRef<() => void>(() => {});
   const lastDebugUpdateRef = useRef(0);
-  const [debugVolume, setDebugVolume] = useState<{
+  const lastEvalEndRef = useRef(0);
+  const [debugInfo, setDebugInfo] = useState<{
     volume: number;
     phase: string;
     isSpeaking: boolean;
+    lastEvent: string;
   } | null>(null);
 
   const {
@@ -89,6 +93,13 @@ export function useSpeechEval() {
   const autoStop = useCallback(() => {
     const vad = vadStateRef.current;
     if (vad.phase === "idle") return;
+
+    const now = Date.now();
+    const dur = (vad.lastSpeechAt ?? now) - (vad.speechStartedAt ?? now);
+    setDebugInfo((prev) => ({
+      ...(prev ?? { volume: 0, phase: "idle", isSpeaking: false, lastEvent: "" }),
+      lastEvent: `autoStop: dur=${dur}ms`,
+    }));
 
     if (vad.silenceTimerId) {
       clearTimeout(vad.silenceTimerId);
@@ -116,6 +127,7 @@ export function useSpeechEval() {
   autoStopRef.current = autoStop;
 
   const resetEngine = useCallback(() => {
+    lastEvalEndRef.current = 0;
     initPromiseRef.current = null;
     engineRef.current = null;
     setIsReady(false);
@@ -135,7 +147,10 @@ export function useSpeechEval() {
   }, [setRecordingStatus, setLoading]);
 
   useEffect(() => {
-    if (recordingStatus === "idle") setDebugVolume(null);
+    if (recordingStatus === "idle") {
+      const t = setTimeout(() => setDebugInfo(null), 3000);
+      return () => clearTimeout(t);
+    }
   }, [recordingStatus]);
 
   useEffect(() => {
@@ -146,6 +161,7 @@ export function useSpeechEval() {
         } catch {
           /* 麦克风可能已被用户手动收回 */
         }
+        lastEvalEndRef.current = 0;
         initPromiseRef.current = null;
         engineRef.current = null;
         const vad = vadStateRef.current;
@@ -189,6 +205,7 @@ export function useSpeechEval() {
           resolve();
         },
         engineBackResultDone: (msg: string) => {
+          lastEvalEndRef.current = Date.now();
           const vad = vadStateRef.current;
           if (vad.silenceTimerId) clearTimeout(vad.silenceTimerId);
           if (vad.maxRecordTimerId) clearTimeout(vad.maxRecordTimerId);
@@ -198,15 +215,23 @@ export function useSpeechEval() {
           vad.silenceTimerId = null;
           vad.maxRecordTimerId = null;
 
+          let overall = "?";
           try {
-            setResult(JSON.parse(msg));
+            const parsed = JSON.parse(msg) as { result?: { overall?: number } };
+            overall = String(parsed?.result?.overall ?? "?");
+            setResult(parsed);
           } catch {
             setResult(null);
           }
+          setDebugInfo((prev) => ({
+            ...(prev ?? { volume: 0, phase: "idle", isSpeaking: false, lastEvent: "" }),
+            lastEvent: `resultDone: overall=${overall}`,
+          }));
           setLoading(false);
           setRecordingStatus("idle");
         },
         engineBackResultFail: (msg: string) => {
+          lastEvalEndRef.current = Date.now();
           const vad = vadStateRef.current;
           if (vad.silenceTimerId) clearTimeout(vad.silenceTimerId);
           if (vad.maxRecordTimerId) clearTimeout(vad.maxRecordTimerId);
@@ -216,6 +241,11 @@ export function useSpeechEval() {
           vad.silenceTimerId = null;
           vad.maxRecordTimerId = null;
 
+          const msgPreview = String(msg).slice(0, 30);
+          setDebugInfo((prev) => ({
+            ...(prev ?? { volume: 0, phase: "idle", isSpeaking: false, lastEvent: "" }),
+            lastEvent: `resultFail: ${msgPreview}`,
+          }));
           console.error("[speech-eval] fail:", msg);
           setLoading(false);
           setRecordingStatus("idle");
@@ -243,11 +273,12 @@ export function useSpeechEval() {
 
           if (now - lastDebugUpdateRef.current >= 200) {
             lastDebugUpdateRef.current = now;
-            setDebugVolume({
+            setDebugInfo((prev) => ({
+              ...(prev ?? { volume: 0, phase: "idle", isSpeaking: false, lastEvent: "" }),
               volume,
               phase: vad.phase,
               isSpeaking,
-            });
+            }));
           }
 
           if (vad.phase === "waitingForSpeech" && isSpeaking) {
@@ -376,37 +407,15 @@ export function useSpeechEval() {
 
       const wId = await getWarrantId();
 
-      try {
-        engineRef.current?.startRecord({
-          coreType,
-          refText,
-          warrantId: wId,
-          evalTime: VAD_MAX_RECORD_MS,
-        });
-      } catch (e) {
-        initPromiseRef.current = null;
-        engineRef.current = null;
-        if (
-          e instanceof Error &&
-          /MediaStream|createMediaStreamSource/i.test(e.message)
-        ) {
-          try {
-            await ensureEngine();
-            const retryEngine = engineRef.current as EngineEvaluatInstance | null;
-            retryEngine?.startRecord({
-              coreType,
-              refText,
-              warrantId: wId,
-              evalTime: VAD_MAX_RECORD_MS,
-            });
-          } catch (retryErr) {
-            setRecordingStatus("idle");
-            throw retryErr;
-          }
-        } else {
-          setRecordingStatus("idle");
-          throw e;
-        }
+      const isReuse = lastEvalEndRef.current > 0;
+      const elapsed = Date.now() - lastEvalEndRef.current;
+      if (isReuse && elapsed < ENGINE_COOLDOWN_MS) {
+        const waitMs = ENGINE_COOLDOWN_MS - elapsed;
+        await new Promise((r) => setTimeout(r, waitMs));
+        setDebugInfo((prev) => ({
+          ...(prev ?? { volume: 0, phase: "idle", isSpeaking: false, lastEvent: "" }),
+          lastEvent: `cooldown: waited ${waitMs}ms`,
+        }));
       }
 
       v.phase = "waitingForSpeech";
@@ -417,6 +426,60 @@ export function useSpeechEval() {
       v.maxRecordTimerId = setTimeout(() => {
         autoStopRef.current();
       }, VAD_MAX_RECORD_MS);
+
+      try {
+        engineRef.current?.startRecord({
+          coreType,
+          refText,
+          warrantId: wId,
+          evalTime: VAD_MAX_RECORD_MS,
+        });
+        setDebugInfo((prev) => ({
+          ...(prev ?? { volume: 0, phase: "idle", isSpeaking: false, lastEvent: "" }),
+          lastEvent: `startRecord: reuse=${isReuse}`,
+        }));
+      } catch (e) {
+        if (v.maxRecordTimerId) {
+          clearTimeout(v.maxRecordTimerId);
+          v.maxRecordTimerId = null;
+        }
+        v.phase = "idle";
+        v.speechStartedAt = null;
+        v.lastSpeechAt = null;
+
+        initPromiseRef.current = null;
+        engineRef.current = null;
+        if (
+          e instanceof Error &&
+          /MediaStream|createMediaStreamSource/i.test(e.message)
+        ) {
+          setDebugInfo((prev) => ({
+            ...(prev ?? { volume: 0, phase: "idle", isSpeaking: false, lastEvent: "" }),
+            lastEvent: "startRecord-retry",
+          }));
+          try {
+            await ensureEngine();
+            const retryEngine = engineRef.current as EngineEvaluatInstance | null;
+            retryEngine?.startRecord({
+              coreType,
+              refText,
+              warrantId: wId,
+              evalTime: VAD_MAX_RECORD_MS,
+            });
+            v.phase = "waitingForSpeech";
+            v.silenceTimeoutMs = silenceTimeoutMs;
+            v.maxRecordTimerId = setTimeout(() => {
+              autoStopRef.current();
+            }, VAD_MAX_RECORD_MS);
+          } catch (retryErr) {
+            setRecordingStatus("idle");
+            throw retryErr;
+          }
+        } else {
+          setRecordingStatus("idle");
+          throw e;
+        }
+      }
     },
     [
       recordingStatus,
@@ -470,6 +533,7 @@ export function useSpeechEval() {
     vad.lastSpeechAt = null;
 
     engineRef.current?.cancelRecord();
+    lastEvalEndRef.current = 0;
     initPromiseRef.current = null;
     engineRef.current = null;
     setRecordingStatus("idle");
@@ -483,7 +547,7 @@ export function useSpeechEval() {
     cancelEval,
     ensureEngine,
     resetEngine,
-    debugVolume,
+    debugInfo,
     getWarrantId,
   };
 }

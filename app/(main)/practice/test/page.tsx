@@ -31,7 +31,7 @@ export default function PracticeTestPage() {
   const [silenceTimeoutMs, setSilenceTimeoutMs] = useState(1800);
 
   const { recordingStatus, result, loading, setResult } = usePracticeStore();
-  const { startEval, stopEval, ensureEngine, debugVolume, getWarrantId } = useSpeechEval();
+  const { startEval, stopEval, ensureEngine, debugInfo, getWarrantId } = useSpeechEval();
   const lastSavedResultRef = useRef<unknown>(null);
   const evalRefTextRef = useRef<string>("");
 
@@ -193,14 +193,17 @@ export default function PracticeTestPage() {
           disabled={!sdkReady}
         />
 
-        {(recordingStatus === "waitingForSpeech" ||
-          recordingStatus === "recording") && (
+        {((recordingStatus === "waitingForSpeech" ||
+          recordingStatus === "recording" ||
+          recordingStatus === "stopped") ||
+          (recordingStatus === "idle" && debugInfo)) && (
           <p className="text-xs text-muted-foreground">
-            {debugVolume ? (
+            {debugInfo ? (
               <>
-                调试：音量 {debugVolume.volume} | 阈值 8 |{" "}
-                {debugVolume.isSpeaking ? "视为说话" : "静音"} | phase{" "}
-                {debugVolume.phase}
+                调试：音量 {debugInfo.volume} | 阈值 8 |{" "}
+                {debugInfo.isSpeaking ? "视为说话" : "静音"} | phase{" "}
+                {debugInfo.phase}
+                {debugInfo.lastEvent ? ` | 事件: ${debugInfo.lastEvent}` : ""}
               </>
             ) : (
               "等待音量回调…"

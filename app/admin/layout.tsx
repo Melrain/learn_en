@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import {
   Sheet,
@@ -11,7 +11,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const navLinks = [
   { href: "/", label: "首页" },
@@ -47,24 +48,40 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile: header with hamburger */}
       <header className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center border-b bg-card px-4 md:hidden">
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="打开菜单">
-              <Menu className="size-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-56 p-0">
-            <SheetHeader className="border-b px-4 py-4">
-              <SheetTitle>Admin</SheetTitle>
-            </SheetHeader>
-            <NavLinks onLinkClick={() => setOpen(false)} />
-          </SheetContent>
-        </Sheet>
+        {mounted ? (
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="打开菜单">
+                <Menu className="size-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-56 p-0">
+              <SheetHeader className="border-b px-4 py-4">
+                <SheetTitle>Admin</SheetTitle>
+              </SheetHeader>
+              <NavLinks onLinkClick={() => setOpen(false)} />
+            </SheetContent>
+          </Sheet>
+        ) : (
+          <button
+            type="button"
+            className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
+            aria-label="打开菜单"
+            disabled
+          >
+            <Menu className="size-5" />
+          </button>
+        )}
         <span className="ml-4 font-semibold">Admin</span>
       </header>
 

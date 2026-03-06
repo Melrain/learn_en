@@ -1,6 +1,7 @@
 import {
   S3Client,
   PutObjectCommand,
+  DeleteObjectCommand,
   CreateBucketCommand,
   HeadBucketCommand,
   type PutObjectCommandInput,
@@ -54,4 +55,11 @@ export async function uploadToS3(
   };
   await s3Client.send(new PutObjectCommand(params));
   return key;
+}
+
+/**
+ * Delete an object from S3 by key.
+ */
+export async function deleteFromS3(key: string): Promise<void> {
+  await s3Client.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: key }));
 }

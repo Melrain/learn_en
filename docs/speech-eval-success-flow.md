@@ -132,6 +132,7 @@ evalTime = 2000 + refText 单词数 × 600 + 1000 毫秒
 ## 7. 注意事项
 
 - 所有使用 `EngineEvaluat` 的组件须标注 `"use client"`
+- 多平台（PC/Android/iOS）避坑与当前稳定方案见 [speech-eval-pitfalls-guide.md](./speech-eval-pitfalls-guide.md)
 - 生产环境需 HTTPS，麦克风才能在非 localhost 下使用
 - warrantId 有效期 7200 秒，前端可缓存在 store 中复用
 - 若公网 IP 获取失败（如网络限制），将回退为请求头 IP，本地开发可能鉴权失败

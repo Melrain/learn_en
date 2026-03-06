@@ -18,6 +18,7 @@ const navLinks = [
   { href: "/admin", label: "仪表盘" },
   { href: "/admin/questions", label: "题目管理" },
   { href: "/admin/sets", label: "题目集合" },
+  { href: "/admin/worlds", label: "世界资产" },
 ];
 
 function NavLinks({ onLinkClick }: { onLinkClick?: () => void }) {

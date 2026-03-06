@@ -118,3 +118,4 @@ engineRef.current = null;
 - 引擎复用后，同一会话内多次录音共用同一 AudioContext 和 MediaStream，避免了重建导致的 MediaStream 失效。
 - 若用户切换标签页或页面被隐藏，`visibilitychange` 仍会调用 `cancelRecord` 并销毁引擎，下次返回页面时会重新创建。
 - 与 [speech-eval-success-flow.md](./speech-eval-success-flow.md) 配合阅读，可了解完整语音评测流程。
+- 汇总多平台避坑点见 [speech-eval-pitfalls-guide.md](./speech-eval-pitfalls-guide.md)。
